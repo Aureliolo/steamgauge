@@ -116,16 +116,20 @@ impl Folders {
     }
 }
 
+/// The file endings a program may carry, from a `PATHEXT` list of them.
+fn endings_in(pathext: &str) -> Vec<String> {
+    pathext
+        .split(';')
+        .filter(|ending| !ending.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
 /// Where `name` is on the search path, as a shell would find it, or in `~/.local/bin`, where
 /// installers that leave the search path alone put their programs.
 fn on_the_search_path(name: &str) -> Option<PathBuf> {
     let endings: Vec<String> = if cfg!(windows) {
-        std::env::var("PATHEXT")
-            .unwrap_or_else(|_| ".EXE;.CMD;.BAT".to_owned())
-            .split(';')
-            .filter(|ending| !ending.is_empty())
-            .map(str::to_owned)
-            .collect()
+        endings_in(&std::env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT".to_owned()))
     } else {
         vec![String::new()]
     };
@@ -2229,5 +2233,223 @@ mod tests {
             .join("SteamGauge")
             .join("steamgauge.exe");
         assert_eq!(steady_path(&installed), installed);
+    }
+
+    #[test]
+    fn a_copy_outside_scoop_keeps_its_own_path_beside_a_current_folder() {
+        let scratch = Scratch::new("not-scoop");
+        let app = scratch.0.join("Programs").join("steamgauge");
+        for version in ["0.2.0", "current"] {
+            std::fs::create_dir_all(app.join(version)).unwrap();
+            std::fs::write(app.join(version).join("steamgauge.exe"), "").unwrap();
+        }
+        let program = app.join("0.2.0").join("steamgauge.exe");
+        assert_eq!(steady_path(&program), program);
+    }
+
+    #[test]
+    fn a_list_of_search_path_endings_drops_the_empty_pieces() {
+        assert_eq!(endings_in(".EXE;;.CMD;"), [".EXE", ".CMD"]);
+        assert_eq!(endings_in(""), Vec::<String>::new());
+    }
+
+    #[test]
+    fn each_language_is_marked_by_its_own_name() {
+        assert_eq!(Language::Json.name(), "json");
+        assert_eq!(Language::Toml.name(), "toml");
+        assert_eq!(Language::Yaml.name(), "yaml");
+    }
+
+    #[test]
+    fn devin_keeps_its_folder_in_the_roaming_one_on_windows_and_the_xdg_one_elsewhere() {
+        let scratch = Scratch::new("devin");
+        let folders = |system| Folders {
+            system,
+            ..scratch.folders()
+        };
+        assert_eq!(
+            devin_folder(&folders(System::Windows)),
+            scratch.0.join("config").join("devin")
+        );
+        for system in [System::Linux, System::MacOs] {
+            assert_eq!(
+                devin_folder(&folders(system)),
+                scratch.0.join("home").join(".config").join("devin")
+            );
+        }
+    }
+
+    #[test]
+    fn goose_keeps_its_folder_under_block_on_windows_and_the_xdg_one_elsewhere() {
+        let scratch = Scratch::new("goose");
+        let folders = |system| Folders {
+            system,
+            ..scratch.folders()
+        };
+        assert_eq!(
+            goose_folder(&folders(System::Windows)),
+            scratch
+                .0
+                .join("config")
+                .join("Block")
+                .join("goose")
+                .join("config")
+        );
+        assert_eq!(
+            goose_folder(&folders(System::Linux)),
+            scratch.0.join("home").join(".config").join("goose")
+        );
+    }
+
+    #[test]
+    fn hermes_keeps_its_folder_in_the_local_one_on_windows_and_the_home_one_elsewhere() {
+        let scratch = Scratch::new("hermes");
+        let folders = |system| Folders {
+            system,
+            ..scratch.folders()
+        };
+        assert_eq!(
+            hermes_folder(&folders(System::Windows)),
+            scratch.0.join("local").join("hermes")
+        );
+        assert_eq!(
+            hermes_folder(&folders(System::Linux)),
+            scratch.0.join("home").join(".hermes")
+        );
+    }
+
+    #[test]
+    fn vt_code_is_added_with_its_mcp_support_switched_on() {
+        let written = with_entry(by_id("vtcode").unwrap(), "", &launch("/opt/steamgauge")).unwrap();
+        let value = value_of(Language::Toml, &written).unwrap();
+        assert_eq!(value["mcp"]["enabled"], true, "{written}");
+    }
+
+    #[test]
+    fn autohand_keeps_its_servers_in_a_list() {
+        let written =
+            with_entry(by_id("autohand").unwrap(), "", &launch("/opt/steamgauge")).unwrap();
+        let value = json(&written);
+        assert_eq!(
+            value["mcp"]["servers"][0]["command"], "/opt/steamgauge",
+            "{written}"
+        );
+    }
+
+    #[test]
+    fn a_file_that_is_not_there_reads_as_empty_and_one_that_cannot_be_read_is_an_error() {
+        let scratch = Scratch::new("read");
+        assert_eq!(read_or_empty(&scratch.0.join("missing.json")).unwrap(), "");
+        let error = read_or_empty(&scratch.0).unwrap_err().to_string();
+        assert!(error.contains("could not read"), "{error}");
+    }
+
+    /// A client added through `cargo`, which answers `--version` whatever follows it and so takes
+    /// the entry's command without writing it anywhere.
+    fn by_cargo(scratch: &Scratch) -> (Client, Folders) {
+        let client = Client {
+            by: By::Running {
+                program: "cargo",
+                add: &["--version"],
+                remove: &["--version"],
+            },
+            ..client(PLAIN)
+        };
+        let folders = Folders {
+            program: |_| on_the_search_path("cargo"),
+            ..scratch.folders()
+        };
+        (client, folders)
+    }
+
+    #[test]
+    fn a_client_that_says_it_added_the_app_but_does_not_name_it_is_an_error() {
+        let scratch = Scratch::new("said");
+        let (client, folders) = by_cargo(&scratch);
+        let file = (client.file)(&folders);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let before = "{\"mcpServers\": {\"steamgauge\": {\"command\": \"/old/steamgauge\"}}}";
+        std::fs::write(&file, before).unwrap();
+        let refusal = add(&client, &folders, &launch("/new/steamgauge"))
+            .unwrap_err()
+            .to_string();
+        assert!(refusal.contains("does not name this copy"), "{refusal}");
+    }
+
+    #[test]
+    fn a_command_that_succeeds_is_ok_and_one_that_fails_says_what_it_printed() {
+        let cargo = on_the_search_path("cargo").unwrap();
+        run(&cargo, ["--version".to_owned()].into_iter()).unwrap();
+        let failure = run(&cargo, ["--no-such-flag".to_owned()].into_iter())
+            .unwrap_err()
+            .to_string();
+        assert!(failure.contains("failed"), "{failure}");
+        assert!(failure.contains("--no-such-flag"), "{failure}");
+    }
+
+    #[test]
+    fn a_text_that_is_not_what_was_expected_is_refused_and_one_that_is_passes() {
+        let written = "{\"a\": 1}";
+        check(PLAIN, written, &serde_json::json!({"a": 1})).unwrap();
+        let refusal = check(PLAIN, written, &serde_json::json!({"a": 2}))
+            .unwrap_err()
+            .to_string();
+        assert!(refusal.contains("changed something else"), "{refusal}");
+    }
+
+    #[test]
+    fn a_toml_list_holding_only_the_apps_entry_has_it_replaced_not_added_to() {
+        let scratch = Scratch::new("toml-only");
+        let folders = scratch.folders();
+        let client = Client {
+            file: |folders| folders.home.join(".test").join("list.toml"),
+            ..client(Format::toml(
+                &["mcp", "providers"],
+                Holds::List,
+                Shape::Enabled,
+            ))
+        };
+        let after = written_over(
+            &client,
+            &folders,
+            "[[mcp.providers]]\nname = \"steamgauge\"\ncommand = \"/old/steamgauge\"\n",
+        );
+        let value = value_of(Language::Toml, &after).unwrap();
+        assert_eq!(value["mcp"]["providers"].as_array().unwrap().len(), 1);
+        assert_eq!(value["mcp"]["providers"][0]["command"], "/opt/steamgauge");
+    }
+
+    fn yaml_refusal(container: &'static [&'static str], holds: Holds, text: &str) -> String {
+        let client = client(Format::yaml(container, holds, Shape::Plain));
+        with_entry(&client, text, &launch("/opt/steamgauge"))
+            .unwrap_err()
+            .to_string()
+    }
+
+    #[test]
+    fn a_yaml_key_on_the_way_down_that_is_no_mapping_is_named() {
+        let refusal = yaml_refusal(&["a", "b"], Holds::Map, "a: 1\n");
+        assert!(refusal.contains("`a` is not a mapping"), "{refusal}");
+    }
+
+    #[test]
+    fn a_yaml_path_that_is_not_there_is_not_made_below_its_first_key() {
+        let refusal = yaml_refusal(&["a", "b"], Holds::Map, "x: 1\n");
+        assert!(refusal.contains("cannot make `a.b`"), "{refusal}");
+    }
+
+    #[test]
+    fn a_yaml_container_that_is_no_mapping_is_named_and_not_written_over() {
+        let refusal = yaml_refusal(&["mcp_servers"], Holds::Map, "mcp_servers: 1\n");
+        assert!(
+            refusal.contains("`mcp_servers` is not a mapping"),
+            "{refusal}"
+        );
+    }
+
+    #[test]
+    fn a_yaml_container_that_is_no_list_is_named_and_not_written_over() {
+        let refusal = yaml_refusal(&["mcpServers"], Holds::List, "mcpServers: 1\n");
+        assert!(refusal.contains("`mcpServers` is not a list"), "{refusal}");
     }
 }

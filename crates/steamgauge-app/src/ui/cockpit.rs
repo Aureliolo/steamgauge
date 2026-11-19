@@ -217,8 +217,12 @@ pub(super) struct Row {
 
 /// The run id of the reader this machine would read with now, where one is on it.
 fn reader_run(settings: &Settings) -> Option<String> {
-    let size = work::reader_here(settings);
-    steamgauge_core::reader::Provenance::load(&size.home())
+    run_in(&work::reader_here(settings).home())
+}
+
+/// The run id of the reader kept in `home`, where one is.
+fn run_in(home: &Path) -> Option<String> {
+    steamgauge_core::reader::Provenance::load(home)
         .ok()
         .map(|provenance| provenance.run_id)
 }
@@ -1021,5 +1025,75 @@ mod tests {
         assert_eq!(file_safe("Half-Life: Alyx"), "Half-Life Alyx");
         assert_eq!(file_safe("What?*"), "What");
         assert_eq!(file_safe("..."), "report");
+    }
+
+    #[test]
+    fn the_totals_kept_for_a_library_are_read_back_and_none_kept_is_none_counted() {
+        let dir = scratch("totals-back");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(SteamTotals::load(&dir).checked, 0);
+        SteamTotals {
+            checked: 5,
+            games: HashMap::from([(7, 100)]),
+        }
+        .save(&dir)
+        .unwrap();
+        let kept = SteamTotals::load(&dir);
+        assert_eq!((kept.checked, kept.games), (5, HashMap::from([(7, 100)])));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn every_published_model_repository_is_asked_after_and_no_empty_one() {
+        use steamgauge_core::search_models::{ENCODER, RERANKER};
+
+        let asked = published();
+        assert!(asked.iter().all(|repository| !repository.is_empty()));
+        for repository in steamgauge_core::reader::SIZES
+            .iter()
+            .map(|size| size.published.repository)
+            .chain([
+                ENCODER.repository,
+                RERANKER.repository,
+                steamgauge_core::writer::WRITER.repository,
+            ])
+            .filter(|repository| !repository.is_empty())
+        {
+            assert!(asked.contains(&repository), "{repository}");
+        }
+        assert!(
+            asked.contains(&steamgauge_core::reader::SIZES[0].published.repository),
+            "the smallest reader is published"
+        );
+    }
+
+    #[test]
+    fn the_run_of_the_reader_in_a_folder_is_its_run_id_and_a_folder_without_one_has_none() {
+        let dir = scratch("run-in");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(run_in(&dir), None);
+        std::fs::write(
+            dir.join("reader.json"),
+            serde_json::json!({
+                "subjects": [], "threshold": 0.5, "max_tokens": 8, "context": false,
+                "mark": false, "prefix": false, "headset_marker": false, "trained_from": "",
+                "data_fingerprint": "", "lines_fingerprint": "", "run_id": "run-7", "name": "n",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        assert_eq!(run_in(&dir).as_deref(), Some("run-7"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_share_is_the_part_over_the_whole_and_nothing_where_there_is_no_whole() {
+        let close = |share: Option<f64>, to: f64| (share.unwrap() - to).abs() < 1e-12;
+        assert!(close(share(1, 4), 0.25));
+        assert!(close(share(3, 4), 0.75));
+        assert!(close(share(4, 4), 1.0));
+        assert!(close(share(0, 5), 0.0));
+        assert_eq!(share(3, 0), None);
+        assert_eq!(share(0, 0), None);
     }
 }

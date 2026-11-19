@@ -300,24 +300,34 @@ fn drives(library: &Path, models: &Path) -> Vec<Drive> {
         let (Ok(total), Ok(free)) = (fs4::total_space(at), fs4::available_space(at)) else {
             continue;
         };
-        let name = drive_name(at);
-        // Two folders on one volume report the same totals. On Unix there is no letter to tell
-        // them apart by, so the totals are what does.
-        if let Some(same) = drives
-            .iter_mut()
-            .find(|drive| drive.total == total && drive.free == free)
-        {
-            same.holds.push(holds);
-        } else {
-            drives.push(Drive {
-                name,
-                total,
-                free,
-                holds: vec![holds],
-            });
-        }
+        keep_on_drive(&mut drives, drive_name(at), total, free, holds);
     }
     drives
+}
+
+/// Notes what `holds` keeps on the drive with these totals, which is the same drive as one
+/// already listed where both totals match. On Unix there is no letter to tell two folders on
+/// one volume apart by, so the totals are what does.
+fn keep_on_drive(
+    drives: &mut Vec<Drive>,
+    name: String,
+    total: u64,
+    free: u64,
+    holds: &'static str,
+) {
+    if let Some(same) = drives
+        .iter_mut()
+        .find(|drive| drive.total == total && drive.free == free)
+    {
+        same.holds.push(holds);
+    } else {
+        drives.push(Drive {
+            name,
+            total,
+            free,
+            holds: vec![holds],
+        });
+    }
 }
 
 fn measure(app: &AppHandle) -> Storage {
@@ -576,10 +586,12 @@ pub(super) async fn free_room(
     })
     .await?;
     let spared = spared_or_refused(app_id, busy, spared)?;
-    Ok(Storage {
-        spared,
-        ..storage(app).await
-    })
+    Ok(with_spared(storage(app).await, spared))
+}
+
+/// The answer a removal gives: what is kept now, and the games the removal left.
+fn with_spared(kept: Storage, spared: Vec<Spared>) -> Storage {
+    Storage { spared, ..kept }
 }
 
 #[tauri::command]
@@ -644,8 +656,9 @@ fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        Part, Parts, Removal, Spared, game_parts, is_the_writer, model_busy, part_of,
-        remove_from_each, remove_from_game, remove_while_held, spared_or_refused, take_away,
+        Drive, Part, Parts, Removal, Spared, Storage, bytes_under, drive_name, drives, game_parts,
+        is_the_writer, keep_on_drive, model_busy, models, part_of, remove_from_each,
+        remove_from_game, remove_while_held, spared_or_refused, take_away, with_spared,
     };
     use crate::ui::work::{Job, State, Task, Unit, Work};
     use std::path::{Path, PathBuf};
@@ -1129,5 +1142,170 @@ mod tests {
             model_busy(&[fetching, reading], "writer").as_deref(),
             Some(read_sentence)
         );
+    }
+
+    #[test]
+    fn a_removal_answers_with_what_is_kept_and_the_games_it_left() {
+        let kept = Storage {
+            library: "library".to_owned(),
+            models: "models".to_owned(),
+            drives: Vec::new(),
+            parts: Parts::default(),
+            games: Vec::new(),
+            model_rooms: Vec::new(),
+            spared: Vec::new(),
+        };
+        let left = vec![Spared {
+            app_id: 7,
+            why: "a read runs".to_owned(),
+        }];
+        let answer = with_spared(kept, left.clone());
+        assert_eq!(answer.spared, left);
+        assert_eq!(answer.library, "library");
+    }
+
+    #[test]
+    fn the_room_of_a_game_is_every_part_added() {
+        let parts = Parts {
+            reviews: 1,
+            reads: 2,
+            search: 4,
+            earlier: 8,
+            partial: 16,
+            other: 32,
+        };
+        assert_eq!(parts.total(), 63);
+    }
+
+    #[test]
+    fn the_parts_of_two_games_add_up_part_by_part() {
+        let first = Parts {
+            reviews: 10,
+            reads: 11,
+            search: 12,
+            earlier: 13,
+            partial: 14,
+            other: 15,
+        };
+        let second = Parts {
+            reviews: 3,
+            reads: 4,
+            search: 5,
+            earlier: 6,
+            partial: 7,
+            other: 8,
+        };
+        assert_eq!(
+            first.plus(&second),
+            Parts {
+                reviews: 13,
+                reads: 15,
+                search: 17,
+                earlier: 19,
+                partial: 21,
+                other: 23,
+            }
+        );
+    }
+
+    #[test]
+    fn a_folder_is_counted_with_everything_in_the_folders_under_it() {
+        let scratch = Scratch::new("bytes");
+        file(&scratch.0.join("top.bin"), 10);
+        file(&scratch.0.join("sub").join("deeper").join("one.bin"), 20);
+        file(&scratch.0.join("sub").join("two.bin"), 5);
+        assert_eq!(bytes_under(&scratch.0), 35);
+        assert_eq!(bytes_under(&scratch.0.join("top.bin")), 10);
+        assert_eq!(bytes_under(&scratch.0.join("missing")), 0);
+    }
+
+    #[test]
+    fn a_link_to_a_folder_is_not_followed_into_it() {
+        let scratch = Scratch::new("link");
+        let outside = scratch.0.join("outside");
+        file(&outside.join("big.bin"), 5_000);
+        let counted = scratch.0.join("counted");
+        file(&counted.join("small.bin"), 10);
+        #[cfg(unix)]
+        let linked = std::os::unix::fs::symlink(&outside, counted.join("link"));
+        #[cfg(windows)]
+        let linked = std::os::windows::fs::symlink_dir(&outside, counted.join("link"));
+        if linked.is_err() {
+            // Making a link takes a right some Windows accounts lack.
+            return;
+        }
+        assert!(bytes_under(&counted) < 1_000, "{}", bytes_under(&counted));
+    }
+
+    #[test]
+    fn a_drive_is_named_by_its_letter_where_there_is_one_and_by_its_folder_elsewhere() {
+        #[cfg(windows)]
+        assert_eq!(drive_name(Path::new(r"D:\Games\library")), "D:");
+        #[cfg(not(windows))]
+        assert_eq!(drive_name(Path::new("/srv/library")), "/srv/library");
+    }
+
+    #[test]
+    fn a_folder_that_exists_has_a_drive_that_holds_what_is_kept_in_it() {
+        let scratch = Scratch::new("drives");
+        let held = drives(&scratch.0, &scratch.0.join("not made yet"));
+        assert!(!held.is_empty());
+        let holds: Vec<&str> = held.iter().flat_map(|drive| drive.holds.clone()).collect();
+        assert_eq!(holds, ["library", "models"]);
+    }
+
+    #[test]
+    fn two_folders_are_on_one_drive_only_where_both_totals_match() {
+        let mut listed: Vec<Drive> = Vec::new();
+        keep_on_drive(&mut listed, "D:".to_owned(), 100, 50, "library");
+        keep_on_drive(&mut listed, "D:".to_owned(), 100, 50, "models");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].holds, ["library", "models"]);
+        keep_on_drive(&mut listed, "E:".to_owned(), 100, 40, "models");
+        keep_on_drive(&mut listed, "F:".to_owned(), 200, 50, "models");
+        assert_eq!(listed.len(), 3);
+        assert_eq!(
+            listed
+                .iter()
+                .map(|drive| drive.name.as_str())
+                .collect::<Vec<_>>(),
+            ["D:", "E:", "F:"]
+        );
+    }
+
+    #[test]
+    fn every_model_is_listed_with_what_it_takes_and_whether_this_computer_uses_it() {
+        let scratch = Scratch::new("models");
+        let encoder = steamgauge_core::search_models::ENCODER;
+        file(&encoder.dir(&scratch.0).join("model.onnx"), 7);
+        let in_use = steamgauge_core::reader::SIZES[0].name;
+        let rooms = models(&scratch.0, in_use, false);
+        assert_eq!(
+            rooms.len(),
+            steamgauge_core::reader::SIZES.len() + 3,
+            "every reader size, the two search models and the writer"
+        );
+        for (room, _) in &rooms {
+            let is_a_reader = steamgauge_core::reader::SIZES
+                .iter()
+                .any(|size| size.name == room.key);
+            if is_a_reader {
+                assert_eq!(room.used, room.key == in_use, "{}", room.key);
+            }
+        }
+        let (found, home) = rooms
+            .iter()
+            .find(|(room, _)| room.key == encoder.name)
+            .unwrap();
+        assert_eq!((found.bytes, found.used), (7, true));
+        assert_eq!(home, &encoder.dir(&scratch.0));
+        let writer_room = |writing| {
+            models(&scratch.0, in_use, writing)
+                .into_iter()
+                .find(|(room, _)| room.key == writer::WRITER.name)
+                .map(|(room, _)| room.used)
+        };
+        assert_eq!(writer_room(true), Some(true));
+        assert_eq!(writer_room(false), Some(false));
     }
 }
