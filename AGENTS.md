@@ -1,5 +1,7 @@
 # SteamGauge
 
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
 `docs/architecture.md` lists the parts and the rules they keep. Read the section that names the
 thing before changing the classifier, the taxonomy, the splitter or anything a reported number
 depends on. The window is `crates/steamgauge-app/ui/`. The site's front page is `home.rs` in
