@@ -89,7 +89,7 @@ jobs:
           cp Cargo.lock fuzz/Cargo.lock
           cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
       # The training scripts are Python, with every rule ruff has on (`training/ruff.toml`).
-      - run: pipx run ruff==0.17.5 check training && pipx run ruff==0.17.5 format --check training
+      - run: pipx run ruff==0.17.6 check training && pipx run ruff==0.17.6 format --check training
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
@@ -256,7 +256,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           python-version: "3.14"
           activate-environment: true
@@ -336,8 +336,8 @@ jobs:
       - name: Install Vale
         env:
           # renovate: datasource=github-release-attachments depName=errata-ai/vale versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          VALE_TAG: v3.27.0
-          VALE_SHA256: c80d62f6bce87b81843ac5b512a26e63213927b957adba0a64fc594570da2000
+          VALE_TAG: v3.29.0
+          VALE_SHA256: 00356ae1bacd1160aa415664f3ed0d34ce9ef5319c61d31123a97366ea1a2f64
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/vale.tar.gz"
@@ -372,8 +372,8 @@ jobs:
       - name: Install cargo-deny
         env:
           # renovate: datasource=github-release-attachments depName=EmbarkStudios/cargo-deny versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          CARGO_DENY_TAG: 0.20.2
-          CARGO_DENY_SHA256: 8ac46937040e08ea06fe0f87340c495b79c913cc86a36c065d7b9a8b352c14f3
+          CARGO_DENY_TAG: 0.22.2
+          CARGO_DENY_SHA256: dd9c0c7fa27edd2982c3681bc573d06ee91f364e5cd85f981f2bb4f9c6bb96be
         run: |
           set -euo pipefail
           name="cargo-deny-${CARGO_DENY_TAG}-x86_64-unknown-linux-musl"
@@ -548,7 +548,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint
-        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        uses: DavidAnson/markdownlint-cli2-action@3ce8f712b5d8f31acd8e201be6d97e3d2bb23eb7 # v25.1.0
 
   # Every shell script in the repository, with every optional check on. actionlint reads the
   # shell inside the workflows' run: blocks, and nothing reads the scripts beside them.
@@ -640,9 +640,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint
-        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.2 lint
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.3 lint
       - name: Check the format
-        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.2 format --check
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.3 format --check
 
   # JavaScript, CSS and JSON, held by Biome to every rule biome.jsonc does not turn off, and to its
   # format. Biome is the exact version tools/package.json pins.
